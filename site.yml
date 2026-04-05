@@ -3,7 +3,7 @@
   ansible.builtin.import_playbook: firewall.yaml
 
 - name: Setup Linux server
-  ansible.builtin.import_playbook: linux_playbook.yml
+  ansible.builtin.import_playbook: linux_playbook.yaml
 
 - name: Run automation role
   hosts: all
