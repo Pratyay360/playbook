@@ -1,0 +1,45 @@
+---
+- name: Setup servers
+  hosts: localhost
+  become: true
+
+  tasks:
+    - name: Ensure podman is installed
+      ansible.builtin.dnf:
+        name: podman
+        state: present
+
+    - name: Install uv via shell script
+      ansible.builtin.shell:
+        cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
+        executable: /bin/bash
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+
+    - name: Download and install podlet
+      ansible.builtin.shell:
+        cmd: |
+          wget -q "https://github.com/containers/podlet/releases/download/v0.3.1/podlet-x86_64-unknown-linux-musl.tar.xz"
+          tar -xf podlet-x86_64-unknown-linux-musl.tar.xz
+          chmod +x podlet
+          mv podlet ~/.local/bin/
+          rm podlet-x86_64-unknown-linux-musl.tar.xz
+        executable: /bin/bash
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/bin/podlet"
+
+    - name: Ensure ~/.local/bin is in PATH via .bashrc
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        line: 'export PATH="$HOME/.local/bin:$PATH"'
+        create: true
+        mode: "0644"
+
+    - name: Install podman-compose via uv
+      ansible.builtin.shell:
+        cmd: uv tool install podman-compose
+        executable: /bin/bash
+      environment:
+        PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/bin/podman-compose"

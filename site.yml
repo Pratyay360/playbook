@@ -1,0 +1,11 @@
+---
+- name: Apply firewall rules
+  ansible.builtin.import_playbook: firewall.yaml
+
+- name: Setup Linux server
+  ansible.builtin.import_playbook: linux_playbook.yml
+
+- name: Run automation role
+  hosts: localhost
+  roles:
+    - role: pratyay.automation.run

@@ -1,0 +1,69 @@
+---
+- name: Configure firewall rules
+  hosts: localhost
+  become: true
+
+  tasks:
+    - name: Remove ufw if installed
+      ansible.builtin.package:
+        name: ufw
+        state: absent
+
+    - name: Ensure firewalld is installed
+      ansible.builtin.package:
+        name: firewalld
+        state: present
+
+    - name: Ensure firewalld is running and enabled
+      ansible.builtin.systemd:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: Set default zone to block
+      ansible.posix.firewalld:
+        zone: block
+        state: present
+        permanent: true
+
+    - name: Allow SSH service
+      ansible.posix.firewalld:
+        service: ssh
+        permanent: true
+        state: enabled
+        immediate: true
+
+    - name: Allow HTTP port
+      ansible.posix.firewalld:
+        port: 80/tcp
+        permanent: true
+        state: enabled
+        immediate: true
+
+    - name: Allow HTTPS port
+      ansible.posix.firewalld:
+        port: 443/tcp
+        permanent: true
+        state: enabled
+        immediate: true
+
+    - name: Allow port 2019/tcp
+      ansible.posix.firewalld:
+        port: 2019/tcp
+        permanent: true
+        state: enabled
+        immediate: true
+
+    - name: Forward port 80 to 8080
+      ansible.posix.firewalld:
+        rich_rule: "rule forward-port port=80 protocol=tcp to-port=8080"
+        permanent: true
+        state: enabled
+        immediate: true
+
+    - name: Forward port 443 to 8443
+      ansible.posix.firewalld:
+        rich_rule: "rule forward-port port=443 protocol=tcp to-port=8443"
+        permanent: true
+        state: enabled
+        immediate: true
