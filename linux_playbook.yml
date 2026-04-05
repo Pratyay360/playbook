@@ -1,6 +1,6 @@
 ---
 - name: Setup servers
-  hosts: localhost
+  hosts: all
   become: true
   gather_facts: true
 
@@ -105,16 +105,25 @@
         mode: "0644"
       become: false
 
-    - name: Extract and install podlet
-      ansible.builtin.shell:
-        cmd: |
-          tar -xf "/tmp/podlet-{{ podlet_arch }}.tar.xz" -C /tmp
-          chmod +x /tmp/podlet
-          mv /tmp/podlet ~/.local/bin/
-          rm "/tmp/podlet-{{ podlet_arch }}.tar.xz"
-        executable: /bin/sh
-      args:
-        creates: "{{ ansible_env.HOME }}/.local/bin/podlet"
+    - name: Extract podlet archive
+      ansible.builtin.unarchive:
+        src: "/tmp/podlet-{{ podlet_arch }}.tar.xz"
+        dest: /tmp
+        remote_src: true
+      become: false
+
+    - name: Install podlet binary
+      ansible.builtin.copy:
+        src: /tmp/podlet
+        dest: "{{ ansible_env.HOME }}/.local/bin/podlet"
+        mode: "0755"
+        remote_src: true
+      become: false
+
+    - name: Remove podlet archive
+      ansible.builtin.file:
+        path: "/tmp/podlet-{{ podlet_arch }}.tar.xz"
+        state: absent
       become: false
 
     - name: Ensure ~/.local/bin is in PATH via shell rc

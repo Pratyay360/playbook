@@ -1,6 +1,6 @@
 ---
 - name: Configure firewall rules
-  hosts: localhost
+  hosts: all
   become: true
   gather_facts: true
 
