@@ -21,24 +21,15 @@ install_ansible() {
   if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update -qq
     sudo apt-get install -y ansible
-
-  # Fedora / RHEL / CentOS
-  elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y epel-release && sudo dnf -y update
-    sudo dnf install -y ansible-core
-
-  # Older RHEL/CentOS
+    
   elif command -v yum >/dev/null 2>&1; then
     sudo yum install -y epel-release
+    sudo yum update -y
     sudo yum install -y ansible-core
 
   # Arch Linux
   elif command -v pacman >/dev/null 2>&1; then
     sudo pacman -Sy --noconfirm ansible
-
-  # openSUSE
-  elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y ansible
 
   # Alpine
   elif command -v apk >/dev/null 2>&1; then
