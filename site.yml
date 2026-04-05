@@ -6,6 +6,6 @@
   ansible.builtin.import_playbook: linux_playbook.yml
 
 - name: Run automation role
-  hosts: localhost
+  hosts: all
   roles:
     - role: pratyay.automation.run
