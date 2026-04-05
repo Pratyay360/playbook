@@ -13,7 +13,7 @@ collections/ansible_collections/pratyay/*
 __pycache__/
 *.py[cod]
 *$py.class
-
+.kiro
 # C extensions
 *.so
 
