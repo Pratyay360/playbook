@@ -69,7 +69,7 @@
 
     - name: Ensure ~/.local/bin exists
       ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/.local/bin"
+        path: "$HOME/.local/bin"
         state: directory
         mode: "0755"
       become: false
@@ -85,7 +85,7 @@
       ansible.builtin.command:
         cmd: /bin/sh /tmp/uv-install.sh
       args:
-        creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+        creates: "$HOME/.local/bin/uv"
       become: false
 
     - name: Detect system architecture
@@ -115,7 +115,7 @@
     - name: Install podlet binary
       ansible.builtin.copy:
         src: /tmp/podlet
-        dest: "{{ ansible_env.HOME }}/.local/bin/podlet"
+        dest: "$HOME/.local/bin/podlet"
         mode: "0755"
         remote_src: true
       become: false
@@ -128,7 +128,7 @@
 
     - name: Ensure ~/.local/bin is in PATH via shell rc
       ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/{{ item }}"
+        path: "$HOME/{{ item }}"
         line: 'export PATH="$HOME/.local/bin:$PATH"'
         create: true
         mode: "0644"
@@ -143,14 +143,14 @@
         cmd: uv tool install podman-compose
         executable: /bin/sh
       environment:
-        PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+        PATH: "$HOME/.local/bin:$PATH"
       args:
-        creates: "{{ ansible_env.HOME }}/.local/bin/podman-compose"
+        creates: "$HOME/.local/bin/podman-compose"
       become: false
 
     - name: Create Caddy configuration directory
       ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/containers/Caddy"
+        path: "$HOME/containers/Caddy"
         state: directory
         mode: "0755"
       become: false
@@ -158,23 +158,23 @@
     - name: Download Caddy docker-compose.yml
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/plutoploy/caddy-cloudflare-sqllite/refs/heads/main/docker-compose.yml
-        dest: "{{ ansible_env.HOME }}/containers/Caddy/docker-compose.yml"
+        dest: "$HOME/containers/Caddy/docker-compose.yml"
         mode: "0644"
       become: false
 
     - name: Download Caddy configuration
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/plutoploy/caddy-cloudflare-sqllite/refs/heads/main/caddy.json
-        dest: "{{ ansible_env.HOME }}/containers/Caddy/caddy.json"
+        dest: "$HOME/containers/Caddy/caddy.json"
         mode: "0644"
       become: false
 
     - name: Start Caddy via podman-compose
       ansible.builtin.shell:
         cmd: podman-compose up -d
-        chdir: "{{ ansible_env.HOME }}/containers/Caddy"
+        chdir: "$HOME/containers/Caddy"
       environment:
-        PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+        PATH: "$HOME/.local/bin:$PATH"
       become: false
       register: caddy_start
       changed_when: "'Running' not in caddy_start.stdout"

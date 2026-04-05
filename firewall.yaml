@@ -14,9 +14,7 @@
       - { port: "443", proto: "tcp", toport: "8443" }
 
   tasks:
-    # ── firewalld path (Fedora / RHEL / Arch / openSUSE / Debian if installed) ──
-
-    - name: Remove ufw if present (Debian/Ubuntu)
+    - name: Remove ufw if present
       ansible.builtin.apt:
         name: ufw
         state: absent
