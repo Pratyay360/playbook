@@ -25,7 +25,7 @@ install_ansible() {
   # Fedora / RHEL / CentOS
   elif command -v dnf >/dev/null 2>&1; then
     sudo dnf install -y epel-release && sudo dnf -y update
-    sudo dnf install -y ansible
+    sudo dnf install -y ansible-core
 
   # Older RHEL/CentOS
   elif command -v yum >/dev/null 2>&1; then
