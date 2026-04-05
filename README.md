@@ -1,6 +1,4 @@
-# Pratyay Automation Ansible Project
-
-## Included content/ Directory Structure
+# Included content/ Directory Structure
 
 The directory structure follows best practices recommended by the Ansible
 community. Feel free to customize this template according to your specific
