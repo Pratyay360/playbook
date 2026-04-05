@@ -70,5 +70,4 @@ echo "==> Running ansible-pull from ${REPO_URL} (branch: ${BRANCH})..."
 ansible-pull \
   --url "${REPO_URL}" \
   --checkout "${BRANCH}" \
-  --connection local \
   "${PLAYBOOK}"
