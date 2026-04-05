@@ -21,7 +21,7 @@ install_ansible() {
   if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update -qq
     sudo apt-get install -y ansible
-    
+
   elif command -v yum >/dev/null 2>&1; then
     sudo yum install -y epel-release
     sudo yum update -y
@@ -34,10 +34,6 @@ install_ansible() {
   # Alpine
   elif command -v apk >/dev/null 2>&1; then
     sudo apk add --no-cache ansible
-
-  # Gentoo
-  elif command -v emerge >/dev/null 2>&1; then
-    sudo emerge --ask=n app-admin/ansible
 
   # FreeBSD
   elif command -v pkg >/dev/null 2>&1; then
@@ -62,6 +58,13 @@ install_ansible() {
 }
 
 install_ansible
+
+echo "==> Installing required Ansible collections..."
+# Use a temporary clone to get requirements.yml before ansible-pull runs
+TMPDIR=$(mktemp -d)
+git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${TMPDIR}/repo" 2>/dev/null
+ansible-galaxy collection install -r "${TMPDIR}/repo/collections/requirements.yml"
+rm -rf "${TMPDIR}"
 
 echo "==> Running ansible-pull from ${REPO_URL} (branch: ${BRANCH})..."
 ansible-pull \
