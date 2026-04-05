@@ -2,44 +2,139 @@
 - name: Setup servers
   hosts: localhost
   become: true
+  gather_facts: true
 
   tasks:
-    - name: Ensure podman is installed
+    - name: Install podman (apt-based)
+      ansible.builtin.apt:
+        name: podman
+        state: present
+        update_cache: true
+      when: ansible_facts['pkg_mgr'] == 'apt'
+
+    - name: Install podman (dnf-based)
       ansible.builtin.dnf:
         name: podman
         state: present
+      when: ansible_facts['pkg_mgr'] == 'dnf'
+
+    - name: Install podman (pacman-based)
+      community.general.pacman:
+        name: podman
+        state: present
+        update_cache: true
+      when: ansible_facts['pkg_mgr'] == 'pacman'
+
+    - name: Install podman (zypper-based)
+      community.general.zypper:
+        name: podman
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'zypper'
+
+    - name: Install podman (portage-based)
+      community.general.portage:
+        package: app-containers/podman
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'portage'
+
+    - name: Install podman (FreeBSD pkg)
+      community.general.pkgng:
+        name: podman
+        state: present
+      when: ansible_facts['os_family'] == 'FreeBSD'
+
+    - name: Install curl and wget (apt-based)
+      ansible.builtin.apt:
+        name: [curl, wget]
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'apt'
+
+    - name: Install curl and wget (dnf-based)
+      ansible.builtin.dnf:
+        name: [curl, wget]
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'dnf'
+
+    - name: Install curl and wget (pacman-based)
+      community.general.pacman:
+        name: [curl, wget]
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'pacman'
+
+    - name: Install curl and wget (FreeBSD)
+      community.general.pkgng:
+        name: [curl, wget]
+        state: present
+      when: ansible_facts['os_family'] == 'FreeBSD'
+
+    - name: Ensure ~/.local/bin exists
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+      become: false
 
     - name: Install uv via shell script
       ansible.builtin.shell:
         cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
-        executable: /bin/bash
+        executable: /bin/sh
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+      become: false
+
+    - name: Detect system architecture
+      ansible.builtin.set_fact:
+        podlet_arch: >-
+          {{
+            'x86_64-unknown-linux-musl' if ansible_facts['architecture'] == 'x86_64' and ansible_facts['os_family'] != 'FreeBSD'
+            else 'aarch64-unknown-linux-musl' if ansible_facts['architecture'] == 'aarch64'
+            else 'x86_64-unknown-freebsd' if ansible_facts['os_family'] == 'FreeBSD'
+            else 'x86_64-unknown-linux-musl'
+          }}
 
     - name: Download and install podlet
       ansible.builtin.shell:
         cmd: |
-          wget -q "https://github.com/containers/podlet/releases/download/v0.3.1/podlet-x86_64-unknown-linux-musl.tar.xz"
-          tar -xf podlet-x86_64-unknown-linux-musl.tar.xz
+          wget -q "https://github.com/containers/podlet/releases/download/v0.3.1/podlet-{{ podlet_arch }}.tar.xz"
+          tar -xf "podlet-{{ podlet_arch }}.tar.xz"
           chmod +x podlet
           mv podlet ~/.local/bin/
-          rm podlet-x86_64-unknown-linux-musl.tar.xz
-        executable: /bin/bash
+          rm "podlet-{{ podlet_arch }}.tar.xz"
+        executable: /bin/sh
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/podlet"
+      become: false
 
-    - name: Ensure ~/.local/bin is in PATH via .bashrc
+    - name: Ensure ~/.local/bin is in PATH via shell rc
       ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
+        path: "{{ ansible_env.HOME }}/{{ item }}"
         line: 'export PATH="$HOME/.local/bin:$PATH"'
         create: true
         mode: "0644"
+      become: false
+      loop:
+        - .bashrc
+        - .zshrc
+        - .profile
 
     - name: Install podman-compose via uv
       ansible.builtin.shell:
         cmd: uv tool install podman-compose
-        executable: /bin/bash
+        executable: /bin/sh
       environment:
         PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/podman-compose"
+      become: false
+    
+    - name: Setup Caddy
+      ansible.builtin.shell:
+        cmd: |
+          mkdir -p ~/containers/Caddy
+          curl https://raw.githubusercontent.com/plutoploy/caddy-cloudflare-sqllite/refs/heads/main/docker-compose.yml >> ~/containers/Caddy/docker-compose.yml
+          curl https://raw.githubusercontent.com/plutoploy/caddy-cloudflare-sqllite/refs/heads/main/caddy.json >> ~/containers/Caddy/caddy.json
+          cd ~/containers/Caddy && podman-compose up -d
+        executable: /bin/sh
+      args:
+        creates: "/etc/caddy/Caddyfile"
+      become: true

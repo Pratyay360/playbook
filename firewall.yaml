@@ -2,68 +2,118 @@
 - name: Configure firewall rules
   hosts: localhost
   become: true
+  gather_facts: true
+
+  vars:
+    firewall_ports:
+      - 80/tcp
+      - 443/tcp
+      - 2019/tcp
+    firewall_forward:
+      - { port: "80", proto: "tcp", toport: "8080" }
+      - { port: "443", proto: "tcp", toport: "8443" }
 
   tasks:
-    - name: Remove ufw if installed
-      ansible.builtin.package:
+    # ── firewalld path (Fedora / RHEL / Arch / openSUSE / Debian if installed) ──
+
+    - name: Remove ufw if present (Debian/Ubuntu)
+      ansible.builtin.apt:
         name: ufw
         state: absent
+      when: ansible_facts['pkg_mgr'] == 'apt'
+      ignore_errors: true
 
-    - name: Ensure firewalld is installed
-      ansible.builtin.package:
+    - name: Install firewalld (apt-based)
+      ansible.builtin.apt:
         name: firewalld
         state: present
+        update_cache: true
+      when: ansible_facts['pkg_mgr'] == 'apt'
 
-    - name: Ensure firewalld is running and enabled
+    - name: Install firewalld (dnf-based)
+      ansible.builtin.dnf:
+        name: firewalld
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'dnf'
+
+    - name: Install firewalld (pacman-based)
+      community.general.pacman:
+        name: firewalld
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'pacman'
+
+    - name: Install firewalld (zypper-based)
+      community.general.zypper:
+        name: firewalld
+        state: present
+      when: ansible_facts['pkg_mgr'] == 'zypper'
+
+    - name: Start and enable firewalld (non-FreeBSD)
       ansible.builtin.systemd:
         name: firewalld
         state: started
         enabled: true
+      when: ansible_facts['os_family'] != 'FreeBSD'
 
     - name: Set default zone to block
       ansible.posix.firewalld:
         zone: block
         state: present
         permanent: true
+      when: ansible_facts['os_family'] != 'FreeBSD'
 
-    - name: Allow SSH service
+    - name: Allow SSH
       ansible.posix.firewalld:
         service: ssh
         permanent: true
         state: enabled
         immediate: true
+      when: ansible_facts['os_family'] != 'FreeBSD'
 
-    - name: Allow HTTP port
+    - name: Allow ports
       ansible.posix.firewalld:
-        port: 80/tcp
+        port: "{{ item }}"
         permanent: true
         state: enabled
         immediate: true
+      loop: "{{ firewall_ports }}"
+      when: ansible_facts['os_family'] != 'FreeBSD'
 
-    - name: Allow HTTPS port
+    - name: Forward ports
       ansible.posix.firewalld:
-        port: 443/tcp
+        rich_rule: "rule forward-port port={{ item.port }} protocol={{ item.proto }} to-port={{ item.toport }}"
         permanent: true
         state: enabled
         immediate: true
+      loop: "{{ firewall_forward }}"
+      when: ansible_facts['os_family'] != 'FreeBSD'
 
-    - name: Allow port 2019/tcp
-      ansible.posix.firewalld:
-        port: 2019/tcp
-        permanent: true
-        state: enabled
-        immediate: true
+    # ── FreeBSD pf path ──
 
-    - name: Forward port 80 to 8080
-      ansible.posix.firewalld:
-        rich_rule: "rule forward-port port=80 protocol=tcp to-port=8080"
-        permanent: true
-        state: enabled
-        immediate: true
+    - name: Install pf tools (FreeBSD)
+      community.general.pkgng:
+        name: pfctl
+        state: present
+      when: ansible_facts['os_family'] == 'FreeBSD'
+      ignore_errors: true
 
-    - name: Forward port 443 to 8443
-      ansible.posix.firewalld:
-        rich_rule: "rule forward-port port=443 protocol=tcp to-port=8443"
-        permanent: true
-        state: enabled
-        immediate: true
+    - name: Deploy pf.conf (FreeBSD)
+      ansible.builtin.template:
+        src: templates/pf.conf.j2
+        dest: /etc/pf.conf
+        mode: "0600"
+      when: ansible_facts['os_family'] == 'FreeBSD'
+      notify: Reload pf
+
+    - name: Enable pf on boot (FreeBSD)
+      ansible.builtin.lineinfile:
+        path: /etc/rc.conf
+        line: 'pf_enable="YES"'
+        create: true
+        mode: "0644"
+      when: ansible_facts['os_family'] == 'FreeBSD'
+
+  handlers:
+    - name: Reload pf
+      ansible.builtin.command: pfctl -f /etc/pf.conf
+      when: ansible_facts['os_family'] == 'FreeBSD'

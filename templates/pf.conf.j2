@@ -1,0 +1,25 @@
+# Managed by Ansible — do not edit manually
+ext_if = "{{ ansible_default_ipv4.interface | default('em0') }}"
+
+# Block everything by default
+block all
+
+# Allow loopback
+pass quick on lo0 all
+
+# Allow established/related
+pass in quick proto tcp from any to any flags S/SA keep state
+pass out quick all keep state
+
+# SSH
+pass in quick on $ext_if proto tcp to port 22
+
+# HTTP / HTTPS / 2019
+{% for item in firewall_ports %}
+pass in quick on $ext_if proto {{ item.split('/')[1] }} to port {{ item.split('/')[0] }}
+{% endfor %}
+
+# Port forwards
+{% for item in firewall_forward %}
+rdr pass on $ext_if proto {{ item.proto }} from any to any port {{ item.port }} -> 127.0.0.1 port {{ item.toport }}
+{% endfor %}
