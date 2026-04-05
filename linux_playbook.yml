@@ -74,10 +74,16 @@
         mode: "0755"
       become: false
 
-    - name: Install uv via shell script
-      ansible.builtin.shell:
-        cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
-        executable: /bin/sh
+    - name: Download uv install script
+      ansible.builtin.get_url:
+        url: https://astral.sh/uv/install.sh
+        dest: /tmp/uv-install.sh
+        mode: "0755"
+      become: false
+
+    - name: Install uv via install script
+      ansible.builtin.command:
+        cmd: /bin/sh /tmp/uv-install.sh
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/uv"
       become: false
@@ -92,14 +98,20 @@
             else 'x86_64-unknown-linux-musl'
           }}
 
-    - name: Download and install podlet
+    - name: Download podlet archive
+      ansible.builtin.get_url:
+        url: "https://github.com/containers/podlet/releases/download/v0.3.1/podlet-{{ podlet_arch }}.tar.xz"
+        dest: "/tmp/podlet-{{ podlet_arch }}.tar.xz"
+        mode: "0644"
+      become: false
+
+    - name: Extract and install podlet
       ansible.builtin.shell:
         cmd: |
-          wget -q "https://github.com/containers/podlet/releases/download/v0.3.1/podlet-{{ podlet_arch }}.tar.xz"
-          tar -xf "podlet-{{ podlet_arch }}.tar.xz"
-          chmod +x podlet
-          mv podlet ~/.local/bin/
-          rm "podlet-{{ podlet_arch }}.tar.xz"
+          tar -xf "/tmp/podlet-{{ podlet_arch }}.tar.xz" -C /tmp
+          chmod +x /tmp/podlet
+          mv /tmp/podlet ~/.local/bin/
+          rm "/tmp/podlet-{{ podlet_arch }}.tar.xz"
         executable: /bin/sh
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/podlet"
@@ -126,7 +138,7 @@
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/podman-compose"
       become: false
-    
+
     - name: Setup Caddy
       ansible.builtin.shell:
         cmd: |

@@ -21,7 +21,7 @@
         name: ufw
         state: absent
       when: ansible_facts['pkg_mgr'] == 'apt'
-      ignore_errors: true
+      failed_when: false
 
     - name: Install firewalld (apt-based)
       ansible.builtin.apt:
@@ -95,7 +95,7 @@
         name: pfctl
         state: present
       when: ansible_facts['os_family'] == 'FreeBSD'
-      ignore_errors: true
+      failed_when: false
 
     - name: Deploy pf.conf (FreeBSD)
       ansible.builtin.template:
@@ -117,3 +117,4 @@
     - name: Reload pf
       ansible.builtin.command: pfctl -f /etc/pf.conf
       when: ansible_facts['os_family'] == 'FreeBSD'
+      changed_when: true
