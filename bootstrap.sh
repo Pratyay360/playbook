@@ -30,7 +30,7 @@ install_ansible() {
   # Older RHEL/CentOS
   elif command -v yum >/dev/null 2>&1; then
     sudo yum install -y epel-release
-    sudo yum install -y ansible
+    sudo yum install -y ansible-core
 
   # Arch Linux
   elif command -v pacman >/dev/null 2>&1; then
