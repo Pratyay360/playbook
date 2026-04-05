@@ -81,7 +81,7 @@
 
     - name: Forward ports
       ansible.posix.firewalld:
-        rich_rule: "rule forward-port port={{ item.port }} protocol={{ item.proto }} to-port={{ item.toport }}"
+        rich_rule: "rule family=ipv4 forward-port port={{ item.port }} protocol={{ item.proto }} to-port={{ item.toport }}"
         permanent: true
         state: enabled
         immediate: true
