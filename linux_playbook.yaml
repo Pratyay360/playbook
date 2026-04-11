@@ -5,6 +5,7 @@
   gather_facts: true
 
   tasks:
+    # --- Podman Installation ---
     - name: Install podman (apt-based)
       ansible.builtin.apt:
         name: podman
@@ -43,37 +44,32 @@
         state: present
       when: ansible_facts['os_family'] == 'FreeBSD'
 
-    - name: Install curl and wget (apt-based)
-      ansible.builtin.apt:
-        name: [curl, wget]
+    # --- Utilities Installation ---
+    - name: Install curl and wget (OS Agnostic)
+      ansible.builtin.package:
+        name:
+          - curl
+          - wget
         state: present
-      when: ansible_facts['pkg_mgr'] == 'apt'
+      when: ansible_facts['pkg_mgr'] != 'portage'
 
-    - name: Install curl and wget (dnf-based)
-      ansible.builtin.dnf:
-        name: [curl, wget]
+    - name: Install curl and wget (Portage)
+      community.general.portage:
+        package:
+          - net-misc/curl
+          - net-misc/wget
         state: present
-      when: ansible_facts['pkg_mgr'] == 'dnf'
+      when: ansible_facts['pkg_mgr'] == 'portage'
 
-    - name: Install curl and wget (pacman-based)
-      community.general.pacman:
-        name: [curl, wget]
-        state: present
-      when: ansible_facts['pkg_mgr'] == 'pacman'
-
-    - name: Install curl and wget (FreeBSD)
-      community.general.pkgng:
-        name: [curl, wget]
-        state: present
-      when: ansible_facts['os_family'] == 'FreeBSD'
-
+    # --- Environment Setup ---
     - name: Ensure ~/.local/bin exists
       ansible.builtin.file:
-        path: "$HOME/.local/bin"
+        path: "{{ ansible_env.HOME }}/.local/bin"
         state: directory
         mode: "0755"
       become: false
 
+    # --- UV Installation ---
     - name: Download uv install script
       ansible.builtin.get_url:
         url: https://astral.sh/uv/install.sh
@@ -85,9 +81,10 @@
       ansible.builtin.command:
         cmd: /bin/sh /tmp/uv-install.sh
       args:
-        creates: "$HOME/.local/bin/uv"
+        creates: "{{ ansible_env.HOME }}/.local/bin/uv"
       become: false
 
+    # --- Podlet Installation ---
     - name: Detect system architecture
       ansible.builtin.set_fact:
         podlet_arch: >-
@@ -115,7 +112,7 @@
     - name: Install podlet binary
       ansible.builtin.copy:
         src: /tmp/podlet
-        dest: "$HOME/.local/bin/podlet"
+        dest: "{{ ansible_env.HOME }}/.local/bin/podlet"
         mode: "0755"
         remote_src: true
       become: false
@@ -126,9 +123,10 @@
         state: absent
       become: false
 
+    # --- PATH Configuration ---
     - name: Ensure ~/.local/bin is in PATH via shell rc
       ansible.builtin.lineinfile:
-        path: "$HOME/{{ item }}"
+        path: "{{ ansible_env.HOME }}/{{ item }}"
         line: 'export PATH="$HOME/.local/bin:$PATH"'
         create: true
         mode: "0644"
@@ -138,19 +136,38 @@
         - .zshrc
         - .profile
 
+    # --- Podman-Compose Installation ---
     - name: Install podman-compose via uv
       ansible.builtin.shell:
         cmd: uv tool install podman-compose
         executable: /bin/sh
       environment:
-        PATH: "$HOME/.local/bin:$PATH"
+        PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH | default('/usr/bin:/bin') }}"
       args:
-        creates: "$HOME/.local/bin/podman-compose"
+        creates: "{{ ansible_env.HOME }}/.local/bin/podman-compose"
       become: false
 
+    # --- Backups Setup ---
+    - name: Ensure .local/bin directory exists for backups
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+      become: false
+
+    # --- Cron Jobs ---
+    - name: Schedule daily backups
+      ansible.builtin.cron:
+        name: "Run daily system backups"
+        minute: "0"
+        hour: "2"
+        job: "{{ ansible_env.HOME }}/.local/bin/backups.sh >> {{ ansible_env.HOME }}/backup.log 2>&1"
+      become: false
+
+    # --- Caddy Setup ---
     - name: Create Caddy configuration directory
       ansible.builtin.file:
-        path: "$HOME/containers/Caddy"
+        path: "{{ ansible_env.HOME }}/containers/Caddy"
         state: directory
         mode: "0755"
       become: false
@@ -158,23 +175,23 @@
     - name: Download Caddy docker-compose.yml
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/plutoploy/caddy-cloudflare-sqllite/refs/heads/main/docker-compose.yml
-        dest: "$HOME/containers/Caddy/docker-compose.yml"
+        dest: "{{ ansible_env.HOME }}/containers/Caddy/docker-compose.yml"
         mode: "0644"
       become: false
 
     - name: Download Caddy configuration
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/plutoploy/caddy-cloudflare-sqllite/refs/heads/main/caddy.json
-        dest: "$HOME/containers/Caddy/caddy.json"
+        dest: "{{ ansible_env.HOME }}/containers/Caddy/caddy.json"
         mode: "0644"
       become: false
 
     - name: Start Caddy via podman-compose
       ansible.builtin.shell:
         cmd: podman-compose up -d
-        chdir: "$HOME/containers/Caddy"
+        chdir: "{{ ansible_env.HOME }}/containers/Caddy"
       environment:
-        PATH: "$HOME/.local/bin:$PATH"
+        PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH | default('/usr/bin:/bin') }}"
       become: false
       register: caddy_start
       changed_when: "'Running' not in caddy_start.stdout"

@@ -8,6 +8,12 @@ set -eu
 REPO_URL="${ANSIBLE_REPO_URL:-https://github.com/pratyay360/playbook.git}"
 BRANCH="${ANSIBLE_BRANCH:-main}"
 PLAYBOOK="${ANSIBLE_PLAYBOOK:-site.yml}"
+setup_backup() {
+  curl https://raw.githubusercontent.com/pratyay360/playbook/main/backup.sh -o $HOME/.local/bin/backup.sh
+  chmod +x $HOME/.local/bin/backup.sh 2>&1
+  echo "Backup script installed to $HOME/.local/bin/backup.sh"
+}
+
 
 install_ansible() {
   if command -v ansible-pull >/dev/null 2>&1; then

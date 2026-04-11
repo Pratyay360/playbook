@@ -13,7 +13,21 @@
       - { port: "80", proto: "tcp", toport: "8080" }
       - { port: "443", proto: "tcp", toport: "8443" }
 
+    fail2ban_jail_local: |
+      [DEFAULT]
+      bantime  = 1h
+      findtime = 10m
+      maxretry = 5
+      backend  = systemd
+
+      [sshd]
+      enabled  = true
+      port     = ssh
+      logpath  = %(sshd_log)s
+
   tasks:
+    # ── Firewalld path (non-FreeBSD) ──
+
     - name: Remove ufw if present
       ansible.builtin.apt:
         name: ufw
@@ -21,41 +35,49 @@
       when: ansible_facts['pkg_mgr'] == 'apt'
       failed_when: false
 
-    - name: Install firewalld (apt-based)
+    - name: Install firewalld and fail2ban (apt-based)
       ansible.builtin.apt:
-        name: firewalld
+        name:
+          - firewalld
+          - fail2ban
         state: present
         update_cache: true
       when: ansible_facts['pkg_mgr'] == 'apt'
 
-    - name: Install firewalld (dnf-based)
+    - name: Install firewalld and fail2ban (dnf-based)
       ansible.builtin.dnf:
-        name: firewalld
+        name:
+          - firewalld
+          - fail2ban
         state: present
       when: ansible_facts['pkg_mgr'] == 'dnf'
 
-    - name: Install firewalld (pacman-based)
+    - name: Install firewalld and fail2ban (pacman-based)
       community.general.pacman:
-        name: firewalld
+        name:
+          - firewalld
+          - fail2ban
         state: present
       when: ansible_facts['pkg_mgr'] == 'pacman'
 
-    - name: Install firewalld (zypper-based)
+    - name: Install firewalld and fail2ban (zypper-based)
       community.general.zypper:
-        name: firewalld
+        name:
+          - firewalld
+          - fail2ban
         state: present
       when: ansible_facts['pkg_mgr'] == 'zypper'
 
-    - name: Start and enable firewalld (non-FreeBSD)
+    - name: Start and enable firewalld
       ansible.builtin.systemd:
         name: firewalld
         state: started
         enabled: true
       when: ansible_facts['os_family'] != 'FreeBSD'
 
-    - name: Set default zone to block
+    - name: Set default zone to public
       ansible.posix.firewalld:
-        zone: block
+        zone: public
         state: present
         permanent: true
       when: ansible_facts['os_family'] != 'FreeBSD'
@@ -86,6 +108,25 @@
       loop: "{{ firewall_forward }}"
       when: ansible_facts['os_family'] != 'FreeBSD'
 
+    # ── fail2ban setup (non-FreeBSD) ──
+
+    - name: Deploy fail2ban jail.local
+      ansible.builtin.copy:
+        content: "{{ fail2ban_jail_local }}"
+        dest: /etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: "0644"
+      when: ansible_facts['os_family'] != 'FreeBSD'
+      notify: Restart fail2ban
+
+    - name: Start and enable fail2ban
+      ansible.builtin.systemd:
+        name: fail2ban
+        state: started
+        enabled: true
+      when: ansible_facts['os_family'] != 'FreeBSD'
+
     # ── FreeBSD pf path ──
 
     - name: Install pf tools (FreeBSD)
@@ -94,6 +135,12 @@
         state: present
       when: ansible_facts['os_family'] == 'FreeBSD'
       failed_when: false
+
+    - name: Install fail2ban (FreeBSD)
+      community.general.pkgng:
+        name: py39-fail2ban
+        state: present
+      when: ansible_facts['os_family'] == 'FreeBSD'
 
     - name: Deploy pf.conf (FreeBSD)
       ansible.builtin.template:
@@ -111,8 +158,37 @@
         mode: "0644"
       when: ansible_facts['os_family'] == 'FreeBSD'
 
+    - name: Deploy fail2ban jail.local (FreeBSD)
+      ansible.builtin.copy:
+        content: "{{ fail2ban_jail_local }}"
+        dest: /usr/local/etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: "0644"
+      when: ansible_facts['os_family'] == 'FreeBSD'
+      notify: Restart fail2ban
+
+    - name: Enable fail2ban on boot (FreeBSD)
+      ansible.builtin.lineinfile:
+        path: /etc/rc.conf
+        line: 'fail2ban_enable="YES"'
+        create: true
+        mode: "0644"
+      when: ansible_facts['os_family'] == 'FreeBSD'
+
+    - name: Start fail2ban (FreeBSD)
+      ansible.builtin.service:
+        name: fail2ban
+        state: started
+      when: ansible_facts['os_family'] == 'FreeBSD'
+
   handlers:
     - name: Reload pf
       ansible.builtin.command: pfctl -f /etc/pf.conf
       when: ansible_facts['os_family'] == 'FreeBSD'
       changed_when: true
+
+    - name: Restart fail2ban
+      ansible.builtin.service:
+        name: fail2ban
+        state: restarted

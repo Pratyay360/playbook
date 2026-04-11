@@ -7,7 +7,7 @@ REMOTES=("mega:/backup" "dropbox:/backup" "gdrive:/backup")
 DATE=$(date +%Y-%m-%d_%H-%M-%S)
 TARBALL="${STAGING}/backup_${DATE}.tar.gz"
 SNAPSHOT="$HOME/.backup.snar"  # tracks incremental state
-NTFY_URL="https://ntfy.sh/pratyay_backup_cloud1"
+NTFY_URL="https://ntfy.sh/plutoploybackup"
 
 # --- Notification Function ---
 notify() {
