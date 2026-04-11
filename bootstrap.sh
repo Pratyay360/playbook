@@ -60,7 +60,6 @@ install_ansible() {
 install_ansible
 
 echo "==> Installing required Ansible collections..."
-# Use a temporary clone to get requirements.yml before ansible-pull runs
 TMPDIR=$(mktemp -d)
 git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${TMPDIR}/repo" 2>/dev/null
 ansible-galaxy collection install -r "${TMPDIR}/repo/collections/requirements.yml"
